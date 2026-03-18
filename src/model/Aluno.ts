@@ -306,40 +306,88 @@ static async listarAlunos(): Promise<Array<AlunoDTO> | null> {
     * @returns Boolean indicando se o cadastro foi bem-sucedido
     */
     // Recebe um objeto Aluno completo e tenta inseri-lo no banco de dados
-    static async cadastrarAluno(aluno: Aluno): Promise<boolean> {
-        try {
-            // Query SQL de inserção — os "$1", "$2"... são placeholders substituídos pelos valores reais
-            // "RETURNING id_aluno" faz o banco retornar o ID gerado automaticamente após o INSERT
-            const queryInsertAluno = `INSERT INTO Aluno (nome, sobrenome, data_nascimento, endereco, email, celular)
-                                            VALUES ('$1','$2','$3','$4','$5','$6') RETURNING id_aluno;`;
+ /**
+ * Cadastra um novo aluno no banco de dados.
+ *
+ * Melhorias aplicadas:
+ * - Removidas aspas simples nos placeholders '$1' → $1 (mesmo bug crítico do atualizar)
+ * - Valores do array alinhados com comentários inline para melhor leitura
+ * - console.error com verificação de tipo segura (error instanceof Error)
+ * - Comentários revisados e organizados pedagogicamente
+ *
+ * @param aluno - Objeto Aluno com os dados a serem inseridos
+ * @returns Promise<boolean> — true se cadastrado com sucesso, false caso contrário
+ */
+static async cadastrarAluno(aluno: Aluno): Promise<boolean> {
+  try {
+    /*
+     * ✅ CORREÇÃO CRÍTICA: Placeholders sem aspas simples
+     *
+     * ERRADO  → VALUES ('$1', '$2', ...)
+     * CORRETO → VALUES ($1, $2, ...)
+     *
+     * Com aspas, o banco interpreta '$1' como texto literal — a substituição
+     * pelo valor real nunca acontece, e a proteção contra SQL Injection
+     * é completamente anulada. Esse bug impediria qualquer cadastro de funcionar.
+     *
+     * ℹ️ RETURNING id_aluno:
+     * Instrui o banco a retornar o ID gerado automaticamente após o INSERT.
+     * Isso permite confirmar que o registro foi criado e recuperar seu ID,
+     * tudo em uma única operação — sem precisar de uma segunda consulta.
+     */
+    const queryInsertAluno = `
+      INSERT INTO Aluno (nome, sobrenome, data_nascimento, endereco, email, celular)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id_aluno;
+    `;
 
-            // Executa a query passando os valores do objeto aluno
-            // .toUpperCase() converte texto para maiúsculas; .toLowerCase() converte para minúsculas
-            const result = await database.query(queryInsertAluno, [aluno.getNome().toUpperCase(),
-            aluno.getSobrenome().toUpperCase(),     // Sobrenome em maiúsculas
-            aluno.getDataNascimento(),              // Data de nascimento sem transformação
-            aluno.getEndereco().toUpperCase(),      // Endereço em maiúsculas
-            aluno.getEmail().toLowerCase(),         // E-mail em minúsculas
-            aluno.getCelular()]);                   // Celular sem transformação
+    /*
+     * Executa a query parametrizada com os dados do objeto Aluno.
+     * Os valores do array são vinculados na ordem dos placeholders $1–$6.
+     *
+     * Normalização aplicada para consistência no banco:
+     * - Textos descritivos (nome, endereço) → MAIÚSCULAS
+     * - E-mail                              → minúsculas
+     * - Datas e números                     → sem transformação
+     */
+    const respostaBD = await database.query(queryInsertAluno, [
+      aluno.getNome().toUpperCase(),       // $1 — Nome
+      aluno.getSobrenome().toUpperCase(),  // $2 — Sobrenome
+      aluno.getDataNascimento(),           // $3 — Data de nascimento
+      aluno.getEndereco().toUpperCase(),   // $4 — Endereço
+      aluno.getEmail().toLowerCase(),      // $5 — E-mail
+      aluno.getCelular(),                  // $6 — Celular
+    ]);
 
-            // Verifica se o banco retornou pelo menos uma linha (ou seja, o INSERT funcionou)
-            if (result.rows.length > 0) {
-                // Exibe no console o ID do aluno recém-cadastrado
-                console.log(`Aluno cadastrado com sucesso. ID: ${result.rows[0].id_aluno}`);
-                // Retorna true para indicar sucesso
-                return true;
-            }
-
-            // Se nenhuma linha foi retornada, o cadastro não funcionou — retorna false
-            return false;
-        } catch (error) {
-            // Captura e exibe qualquer erro ocorrido durante o cadastro
-            console.error(`Erro ao cadastrar aluno: ${error}`);
-            // Retorna false indicando falha
-            return false;
-        }
+    /*
+     * Verifica se o banco retornou ao menos uma linha com o ID gerado.
+     * rows.length > 0 confirma que o INSERT foi executado com sucesso.
+     *
+     * ℹ️ Por que não usar rowCount aqui?
+     * Para INSERT com RETURNING, a forma mais confiável de confirmar o sucesso
+     * é verificar se rows contém o registro retornado — rowCount pode variar
+     * conforme o driver utilizado.
+     */
+    if (respostaBD.rows.length > 0) {
+      console.log(`[AlunoModel] Aluno cadastrado com sucesso. ID: ${respostaBD.rows[0].id_aluno}`);
+      return true;
     }
 
+    // INSERT executou sem erros, mas nenhum ID foi retornado — indica falha silenciosa
+    return false;
+
+  } catch (error) {
+    /*
+     * ✅ MELHORIA: Verificação de tipo do erro antes de exibir a mensagem.
+     * "error" no catch é do tipo unknown em TypeScript moderno.
+     * Verificar instanceof Error antes de acessar .message é a forma segura.
+     */
+    const mensagem = error instanceof Error ? error.message : String(error);
+    console.error(`[AlunoModel] Erro ao cadastrar aluno: ${mensagem}`);
+
+    return false;
+  }
+}
     /**
     * Remove um aluno do banco de dados
     * @param id_aluno ID do aluno a ser removido
