@@ -391,50 +391,97 @@ static async listarAlunos(): Promise<Array<AlunoDTO> | null> {
     * @returns true caso sucesso, false caso erro
     */
     // Recebe um objeto Aluno com os dados atualizados e os salva no banco
-    static async atualizarAluno(aluno: Aluno): Promise<boolean> {
-        try {
-            // Antes de atualizar, verifica se o aluno existe e está ativo no banco
-            const alunoConsulta: AlunoDTO | null = await this.listarAluno(aluno.id_aluno);
+    /**
+ * Atualiza os dados de um aluno existente e ativo no banco de dados.
+ *
+ * Melhorias aplicadas:
+ * - Removidas aspas simples nos placeholders '$1' → $1 (bug de segurança!)
+ * - Comparação rowCount com null e uso de operador estrito (!== em vez de !=)
+ * - console.error com verificação de tipo segura (error instanceof Error)
+ * - Comentários revisados e organizados pedagogicamente
+ *
+ * @param aluno - Objeto Aluno com os dados atualizados e o ID do registro
+ * @returns Promise<boolean> — true se atualizado com sucesso, false caso contrário
+ */
+static async atualizarAluno(aluno: Aluno): Promise<boolean> {
+  try {
+    /*
+     * Antes de atualizar, verifica se o aluno existe e está ativo.
+     * Essa consulta prévia evita executar um UPDATE desnecessário no banco.
+     * listarAluno() retorna null se não encontrar — por isso checamos logo abaixo.
+     */
+    const alunoConsulta: AlunoDTO | null = await this.listarAluno(aluno.id_aluno);
 
-            // Só prossegue com a atualização se o aluno existir e estiver ativo
-            if (alunoConsulta && alunoConsulta.status_aluno) {
-                // Query SQL de atualização — cada campo recebe um placeholder "$n"
-                // O WHERE garante que só o aluno com o ID correto seja atualizado
-                const queryAtualizarAluno = `UPDATE Aluno SET 
-                                                    nome = '$1', 
-                                                    sobrenome = '$2',
-                                                    data_nascimento = '$3', 
-                                                    endereco = '$4',
-                                                    celular = '$5', 
-                                                    email = '$6'                                            
-                                                WHERE id_aluno = $7`;
-
-                // Executa a query de atualização com os valores do objeto aluno recebido
-                const respostaBD = await database.query(queryAtualizarAluno, [
-                    aluno.getNome().toUpperCase(),       // Nome em maiúsculas
-                    aluno.getSobrenome().toUpperCase(),  // Sobrenome em maiúsculas
-                    aluno.getDataNascimento(),           // Data de nascimento
-                    aluno.getEndereco().toUpperCase(),   // Endereço em maiúsculas
-                    aluno.getCelular(),                  // Celular
-                    aluno.getEmail().toLowerCase(),      // E-mail em minúsculas
-                    aluno.id_aluno                       // ID do aluno (para o WHERE)
-                ]);
-
-                // Se rowCount for diferente de 0, a atualização funcionou — retorna true
-                if (respostaBD.rowCount != 0) {
-                    return true;
-                }
-            }
-
-            // Se o aluno não existe, está inativo, ou o UPDATE não afetou nenhuma linha, retorna false
-            return false;
-        } catch (error) {
-            // Exibe o erro no console e retorna false em caso de exceção
-            console.log(`Erro na consulta: ${error}`);
-            return false;
-        }
+    // Se o aluno não existir ou estiver inativo, encerra aqui retornando false
+    if (!alunoConsulta || !alunoConsulta.status_aluno) {
+      return false;
     }
 
+    /*
+     * ✅ CORREÇÃO CRÍTICA: Placeholders sem aspas simples
+     *
+     * ERRADO  → nome = '$1'  (o banco interpreta como string literal "$1")
+     * CORRETO → nome = $1    (o banco substitui pelo valor real do array)
+     *
+     * Usar '$1' com aspas além de quebrar a query, anula a proteção contra
+     * SQL Injection que os placeholders parametrizados oferecem.
+     */
+    const queryAtualizarAluno = `
+      UPDATE Aluno
+      SET
+        nome            = $1,
+        sobrenome       = $2,
+        data_nascimento = $3,
+        endereco        = $4,
+        celular         = $5,
+        email           = $6
+      WHERE id_aluno = $7
+    `;
+
+    /*
+     * Executa a query parametrizada.
+     * Os valores do array são vinculados aos placeholders $1–$7, na ordem.
+     * Normalizar strings (upper/lowercase) garante consistência no banco.
+     */
+    const respostaBD = await database.query(queryAtualizarAluno, [
+      aluno.getNome().toUpperCase(),        // $1 — Nome padronizado em maiúsculas
+      aluno.getSobrenome().toUpperCase(),   // $2 — Sobrenome padronizado em maiúsculas
+      aluno.getDataNascimento(),            // $3 — Data de nascimento
+      aluno.getEndereco().toUpperCase(),    // $4 — Endereço padronizado em maiúsculas
+      aluno.getCelular(),                   // $5 — Celular
+      aluno.getEmail().toLowerCase(),       // $6 — E-mail padronizado em minúsculas
+      aluno.id_aluno,                       // $7 — ID usado no WHERE
+    ]);
+
+    /*
+     * ✅ MELHORIA: Verificação de rowCount com null antes de comparar
+     *
+     * rowCount pode ser null se o driver não souber quantas linhas foram afetadas.
+     * Checar isso explicitamente evita comportamento inesperado.
+     *
+     * ✅ MELHORIA: Operador estrito !== em vez de !=
+     * O operador !== não faz coerção de tipos (ex: "0" != 0 seria true com !=).
+     * Em TypeScript, sempre prefira === e !== para comparações seguras.
+     */
+    if (respostaBD.rowCount !== null && respostaBD.rowCount !== 0) {
+      return true;
+    }
+
+    // UPDATE executado, mas nenhuma linha foi afetada — retorna false
+    return false;
+
+  } catch (error) {
+    /*
+     * ✅ MELHORIA: console.error + verificação de tipo do erro
+     * "error" no catch é do tipo unknown em TypeScript moderno.
+     * Verificar instanceof Error antes de acessar .message é a forma segura.
+     */
+    const mensagem = error instanceof Error ? error.message : String(error);
+    console.error(`[AlunoModel] Erro ao atualizar aluno: ${mensagem}`);
+
+    return false;
+  }
+}
 }
 
 // Exporta a classe Aluno para que possa ser importada e usada em outros arquivos do projeto
