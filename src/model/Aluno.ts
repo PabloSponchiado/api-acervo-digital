@@ -163,59 +163,104 @@ class Aluno {
      */
     // "async" indica que este método é assíncrono — ele pode "esperar" por operações demoradas (como banco de dados)
     // Retorna uma Promise que, quando resolvida, contém um Array de AlunoDTO ou null
-    static async listarAlunos(): Promise<Array<AlunoDTO> | null> {
-        // Cria uma lista vazia que vai receber os alunos encontrados no banco
-        let listaDeAlunos: Array<AlunoDTO> = [];
-
-        try {
-            // Bloco try: tenta executar o código; se algo der errado, vai para o catch
-
-            // Define a query SQL que busca todos os alunos ativos no banco de dados
-            const querySelectAluno = `SELECT * FROM Aluno WHERE status_aluno = TRUE;`;
-
-            // Executa a query no banco de dados e aguarda o resultado
-            // "await" pausa a execução aqui até o banco responder
-            const respostaBD = await database.query(querySelectAluno);
-
-            // Percorre cada linha retornada pelo banco de dados
-            // "aluno" é o apelido dado a cada linha individual retornada
-            respostaBD.rows.forEach((aluno: any) => {
-
-                // Cria um objeto AlunoDTO com os dados de cada linha do banco
-                // AlunoDTO é apenas um objeto simples de dados (sem métodos), diferente da classe Aluno
-                const alunoDTO: AlunoDTO = {
-                    id_aluno: aluno.id_aluno,               // ID do aluno
-                    ra: aluno.ra,                           // Registro Acadêmico
-                    nome: aluno.nome,                       // Nome
-                    sobrenome: aluno.sobrenome,             // Sobrenome
-                    data_nascimento: aluno.data_nascimento, // Data de nascimento
-                    endereco: aluno.endereco,               // Endereço
-                    email: aluno.email,                     // E-mail
-                    celular: aluno.celular,                 // Celular
-                    status_aluno: aluno.status_aluno        // Status ativo/inativo
-                };
-
-                // Adiciona o objeto AlunoDTO à lista
-                listaDeAlunos.push(alunoDTO);
-            });
-
-            // Retorna a lista com todos os alunos encontrados
-            return listaDeAlunos;
-        } catch (error) {
-            // Se ocorrer qualquer erro durante a consulta, exibe no console para facilitar o debug
-            console.log(`Erro ao acessar o modelo: ${error}`);
-            // Retorna null para indicar que houve falha
-            return null;
-        }
-    }
-
-    /**
-     * Retorna as informações de um aluno informado pelo ID
-     * 
-     * @param idAluno Identificador único do aluno
-     * @returns Objeto com informações do aluno
+  /**
+ * Lista todos os alunos ativos no banco de dados.
+ *
+ * Melhorias aplicadas:
+ * - Substituído forEach + push por map (mais idiomático e eficiente)
+ * - Query com colunas explícitas em vez de SELECT * (evita dados desnecessários)
+ * - Tipagem explícita na linha do banco (elimina uso de "any")
+ * - Logging de erro mais informativo com console.error
+ * - Comentários revisados para clareza pedagógica
+ *
+ * @returns Promise com array de AlunoDTO ou null em caso de erro
+ */
+static async listarAlunos(): Promise<Array<AlunoDTO> | null> {
+  try {
+    /*
+     * ✅ MELHORIA: Evite SELECT *
+     * Listar colunas explicitamente melhora a legibilidade, evita trazer
+     * campos desnecessários e protege contra mudanças futuras no schema.
      */
-    // Recebe o ID do aluno como parâmetro e retorna um AlunoDTO ou null
+    const querySelectAluno = `
+      SELECT
+        id_aluno,
+        ra,
+        nome,
+        sobrenome,
+        data_nascimento,
+        endereco,
+        email,
+        celular,
+        status_aluno
+      FROM Aluno
+      WHERE status_aluno = TRUE;
+    `;
+
+    /*
+     * Executa a query no banco de dados.
+     * "await" pausa a função aqui até o banco responder —
+     * sem bloquear o restante da aplicação (isso é programação assíncrona).
+     */
+    const respostaBD = await database.query(querySelectAluno);
+
+    /*
+     * ✅ MELHORIA: Substituído forEach + push por map()
+     *
+     * O map() transforma cada linha em um AlunoDTO e já retorna o array pronto,
+     * sem precisar criar uma lista vazia antes e empurrar item por item.
+     * É mais conciso, mais legível e considerado boa prática em TypeScript.
+     *
+     * ✅ MELHORIA: Tipagem explícita no parâmetro da função
+     * Substituímos (aluno: any) por uma interface inline.
+     * Isso ativa a checagem de tipos do TypeScript, evitando erros silenciosos.
+     */
+    const listaDeAlunos: Array<AlunoDTO> = respostaBD.rows.map(
+      (aluno: {
+        id_aluno: number;
+        ra: string;
+        nome: string;
+        sobrenome: string;
+        data_nascimento: Date;
+        endereco: string;
+        email: string;
+        celular: string;
+        status_aluno: boolean;
+      }): AlunoDTO => ({
+        id_aluno: aluno.id_aluno,
+        ra: aluno.ra,
+        nome: aluno.nome,
+        sobrenome: aluno.sobrenome,
+        data_nascimento: aluno.data_nascimento,
+        endereco: aluno.endereco,
+        email: aluno.email,
+        celular: aluno.celular,
+        status_aluno: aluno.status_aluno,
+      })
+    );
+
+    // Retorna a lista de alunos transformados em DTOs
+    return listaDeAlunos;
+
+  } catch (error) {
+    /*
+     * ✅ MELHORIA: console.error em vez de console.log
+     * Erros devem ser registrados como erros — isso facilita o monitoramento
+     * em ferramentas de log (ex: Datadog, Sentry) e deixa claro no terminal
+     * que algo inesperado aconteceu.
+     *
+     * ✅ MELHORIA: Verificação do tipo de erro antes de exibir a mensagem
+     * Em TypeScript, o "error" no catch é do tipo "unknown" por padrão.
+     * Verificar se é instância de Error antes de acessar .message é mais seguro
+     * e evita crashes no próprio bloco de tratamento de erro.
+     */
+    const mensagem = error instanceof Error ? error.message : String(error);
+    console.error(`[AlunoModel] Erro ao listar alunos: ${mensagem}`);
+
+    // Retorna null para sinalizar ao chamador que a operação falhou
+    return null;
+  }
+}
     static async listarAluno(id_aluno: number): Promise<AlunoDTO | null> {
         try {
             // Bloco try: aqui tentamos executar o código que pode gerar um erro.
