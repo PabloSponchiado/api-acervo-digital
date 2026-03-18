@@ -346,63 +346,97 @@ static async listarAlunos(): Promise<Array<AlunoDTO> | null> {
     * @returns Boolean indicando se a remoção foi bem-sucedida
    */
     // Recebe o ID do aluno e realiza uma "remoção lógica" (não apaga do banco, apenas desativa)
-    static async removerAluno(id_aluno: number): Promise<boolean> {
-        try {
-            // Busca o aluno no banco antes de tentar remover, para verificar se ele existe e está ativo
-            const aluno: AlunoDTO | null = await this.listarAluno(id_aluno);
-
-            // Só prossegue se o aluno existir (não for null) E estiver com status ativo (true)
-            if (aluno && aluno.status_aluno) {
-                // Query que desativa todos os empréstimos relacionados ao aluno
-                // Em vez de apagar, usa UPDATE para setar o status como FALSE (remoção lógica)
-                const queryDeleteEmprestimoAluno = `UPDATE emprestimo 
-                                                    SET status_emprestimo_registro = FALSE
-                                                    WHERE id_aluno=$1;`;
-
-                // Executa a desativação dos empréstimos do aluno
-                await database.query(queryDeleteEmprestimoAluno, [id_aluno]);
-
-                // Query que desativa o próprio aluno (também uma remoção lógica)
-                const queryDeleteAluno = `UPDATE aluno 
-                                        SET status_aluno = FALSE
-                                        WHERE id_aluno=$1;`;
-
-                // Executa a desativação do aluno e armazena o resultado
-                const result = await database.query(queryDeleteAluno, [id_aluno]);
-
-                // "rowCount" indica quantas linhas foram afetadas pelo UPDATE
-                // Se for diferente de 0, significa que o aluno foi desativado com sucesso
-                return true;
-            }
-
-            // Se o aluno não existir ou já estiver inativo, retorna false
-            return false;
-
-        } catch (error) {
-            // Exibe o erro no console e retorna false em caso de falha
-            console.log(`Erro na consulta: ${error}`);
-            return false;
-        }
-    }
-
-    /**
-    * Atualiza os dados de um aluno no banco de dados.
-    * @param aluno Objeto do tipo Aluno com os novos dados
-    * @returns true caso sucesso, false caso erro
-    */
-    // Recebe um objeto Aluno com os dados atualizados e os salva no banco
-    /**
- * Atualiza os dados de um aluno existente e ativo no banco de dados.
+  /**
+ * Remove logicamente um aluno e seus empréstimos do sistema.
+ *
+ * ℹ️ Remoção LÓGICA vs FÍSICA:
+ * - Física (DELETE): apaga o registro permanentemente do banco — sem volta.
+ * - Lógica (UPDATE status = FALSE): apenas "esconde" o registro, preservando
+ *   o histórico. É a abordagem preferida em sistemas reais, pois mantém
+ *   a integridade dos dados e permite auditoria.
  *
  * Melhorias aplicadas:
- * - Removidas aspas simples nos placeholders '$1' → $1 (bug de segurança!)
- * - Comparação rowCount com null e uso de operador estrito (!== em vez de !=)
+ * - Adicionada verificação de rowCount após o UPDATE do aluno
+ * - Variável `result` que existia mas nunca era usada foi aproveitada
+ * - Invertida condição para early return (guard clause)
  * - console.error com verificação de tipo segura (error instanceof Error)
  * - Comentários revisados e organizados pedagogicamente
  *
- * @param aluno - Objeto Aluno com os dados atualizados e o ID do registro
- * @returns Promise<boolean> — true se atualizado com sucesso, false caso contrário
+ * @param id_aluno - ID do aluno a ser desativado
+ * @returns Promise<boolean> — true se removido com sucesso, false caso contrário
  */
+static async removerAluno(id_aluno: number): Promise<boolean> {
+  try {
+    /*
+     * Consulta prévia: verifica se o aluno existe e está ativo antes de agir.
+     * Evita executar queries de UPDATE desnecessárias no banco.
+     */
+    const aluno: AlunoDTO | null = await this.listarAluno(id_aluno);
+
+    // Guard clause: se o aluno não existir ou já estiver inativo, encerra aqui
+    if (!aluno || !aluno.status_aluno) {
+      return false;
+    }
+
+    /*
+     * PASSO 1 — Desativa os empréstimos vinculados ao aluno.
+     *
+     * Antes de desativar o aluno, desativamos seus empréstimos.
+     * Essa ordem importa: garante consistência nos dados
+     * (não deixamos empréstimos "ativos" para um aluno inativo).
+     *
+     * ℹ️ Não verificamos rowCount aqui porque é válido que o aluno
+     * não tenha nenhum empréstimo — zero linhas afetadas não é um erro.
+     */
+    const queryDesativarEmprestimos = `
+      UPDATE emprestimo
+      SET status_emprestimo_registro = FALSE
+      WHERE id_aluno = $1;
+    `;
+
+    await database.query(queryDesativarEmprestimos, [id_aluno]);
+
+    /*
+     * PASSO 2 — Desativa o próprio aluno.
+     *
+     * Só executado após os empréstimos serem tratados no passo anterior.
+     * Armazenamos o resultado para verificar se o UPDATE realmente funcionou.
+     */
+    const queryDesativarAluno = `
+      UPDATE aluno
+      SET status_aluno = FALSE
+      WHERE id_aluno = $1;
+    `;
+
+    const respostaBD = await database.query(queryDesativarAluno, [id_aluno]);
+
+    /*
+     * ✅ CORREÇÃO: rowCount estava sendo ignorado no código original.
+     * A variável `result` era declarada mas nunca verificada — o método
+     * retornava true mesmo se o UPDATE não afetasse nenhuma linha.
+     *
+     * rowCount pode ser null se o driver não souber quantas linhas foram afetadas,
+     * por isso verificamos null explicitamente antes de comparar com 0.
+     */
+    if (respostaBD.rowCount !== null && respostaBD.rowCount !== 0) {
+      return true;
+    }
+
+    // UPDATE executou sem erros, mas nenhuma linha foi afetada
+    return false;
+
+  } catch (error) {
+    /*
+     * ✅ MELHORIA: console.error + verificação de tipo do erro
+     * "error" no catch é do tipo unknown em TypeScript moderno.
+     * Verificar instanceof Error antes de acessar .message é a forma segura.
+     */
+    const mensagem = error instanceof Error ? error.message : String(error);
+    console.error(`[AlunoModel] Erro ao remover aluno: ${mensagem}`);
+
+    return false;
+  }
+}
 static async atualizarAluno(aluno: Aluno): Promise<boolean> {
   try {
     /*
