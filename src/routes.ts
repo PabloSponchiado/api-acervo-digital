@@ -2,12 +2,16 @@ import { Router, type Request, type Response } from "express";
 import AlunoController from "./controller/AlunoController.js";
 import LivroController from "./controller/LivroController.js";
 import EmprestimoController from "./controller/EmprestimoController.js";
+import { Auth } from "./middleware/Auth.js";
 
 const router = Router();
 
 router.get('/', (req: Request, res: Response) => {
     return res.status(200).json(`Aplicação online. Timestamp: ${new Date()}`);
 });
+
+// Autenticação
+router.post('/api/login', Auth.validacaoUsuario);
 
 // Alunos
 router.get('/api/alunos', AlunoController.todos);
