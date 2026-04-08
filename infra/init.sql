@@ -175,3 +175,25 @@ VALUES
 (13, 17, '2024-09-11', '2024-09-25', 'Atrasado'),
 (15, 16, '2024-09-11', '2024-09-25', 'Em andamento'),
 (17, 14, '2024-09-11', '2024-09-25', 'Concluído');
+
+-- CRIAR TABELA USUARIOS
+CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    senha VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'user'
+);
+
+-- INSERIR USUÁRIO DE TESTE
+INSERT INTO usuarios (nome, email, senha, role) VALUES
+('João Silva', 'joao.silva@adigital.com.br', 'senha123', 'user'),
+('Maria Souza', 'maria.souza@adigital.com.br', 'senha123', 'admin'),
+('Carlos Pereira', 'carlos.pereira@adigital.com.br', 'senha123', 'user'),
+('Ana Oliveira', 'ana.oliveira@adigital.com.br', 'senha123', 'user'),
+('Pedro Santos', 'pedro.santos@adigital.com.br', 'senha123', 'admin'),
+('Juliana Costa', 'juliana.costa@adigital.com.br', 'senha123', 'user'),
+('Lucas Almeida', 'lucas.almeida@adigital.com.br', 'senha123', 'user'),
+('Fernanda Rocha', 'fernanda.rocha@adigital.com.br', 'senha123', 'user'),
+('Rafael Gomes', 'rafael.gomes@adigital.com.br', 'senha123', 'admin'),
+('Beatriz Martins', 'beatriz.martins@adigital.com.br', 'senha123', 'user');
