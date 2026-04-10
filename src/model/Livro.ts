@@ -41,7 +41,6 @@ class Livro {
         _isbn: string,             // ISBN do livro — obrigatório
         _quant_total: number,      // Quantidade total de exemplares — obrigatório
         _quant_disponivel: number, // Quantidade disponível para empréstimo — obrigatório
-        _quant_aquisicao: number,  // Quantidade adquirida (recebido, mas não usado no construtor — ver abaixo)
         _valor_aquisicao: number   // Valor de aquisição — obrigatório
     ) {
         // Atribui os valores recebidos aos atributos internos da classe
@@ -53,8 +52,6 @@ class Livro {
         this.quant_total = _quant_total;
         this.quant_disponivel = _quant_disponivel;
         this.valor_aquisicao = _valor_aquisicao;
-        // ⚠️ Atenção: o parâmetro "_quant_aquisicao" é recebido mas nunca atribuído a nenhum atributo
-        // Isso provavelmente é um esquecimento no código original
     }
 
     // ==================== GETTERS E SETTERS ====================
@@ -194,7 +191,6 @@ class Livro {
                     isbn: livro.isbn,                                   // ISBN
                     quant_total: livro.quant_total,                     // Quantidade total
                     quant_disponivel: livro.quant_disponivel,           // Quantidade disponível
-                    quant_aquisicao: livro.quant_aquisicao,             // Quantidade de aquisição
                     valor_aquisicao: livro.valor_aquisicao,             // Valor de aquisição
                     status_livro_emprestado: livro.status_livro_emprestado, // Status de empréstimo
                     status_livro: livro.status_livro                    // Status ativo/inativo
@@ -242,7 +238,6 @@ class Livro {
                 isbn: respostaBD.rows[0].isbn,
                 quant_total: respostaBD.rows[0].quant_total,
                 quant_disponivel: respostaBD.rows[0].quant_disponivel,
-                quant_aquisicao: respostaBD.rows[0].quant_aquisicao,
                 valor_aquisicao: respostaBD.rows[0].valor_aquisicao,
                 status_livro_emprestado: respostaBD.rows[0].status_livro_emprestado,
                 status_livro: respostaBD.rows[0].status_livro
