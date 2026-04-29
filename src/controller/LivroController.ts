@@ -63,6 +63,7 @@ class LivroController extends Livro {
                 dadosRecebidos.isbn,                // ISBN do livro
                 dadosRecebidos.quant_total,         // Quantidade total de exemplares
                 dadosRecebidos.quant_disponivel,    // Quantidade disponível para empréstimo
+                dadosRecebidos.quant_aquisicao,     // Quantidade adquirida
                 // valor_aquisicao é opcional no DTO — se não informado, usa 0 como padrão
                 dadosRecebidos.valor_aquisicao ?? 0
             );
@@ -135,6 +136,7 @@ class LivroController extends Livro {
                 dadosRecebidos.isbn,
                 dadosRecebidos.quant_total,
                 dadosRecebidos.quant_disponivel,
+                dadosRecebidos.quant_aquisicao,
                 dadosRecebidos.valor_aquisicao ?? 0
             );
 

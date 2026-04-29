@@ -163,104 +163,59 @@ class Aluno {
      */
     // "async" indica que este método é assíncrono — ele pode "esperar" por operações demoradas (como banco de dados)
     // Retorna uma Promise que, quando resolvida, contém um Array de AlunoDTO ou null
-  /**
- * Lista todos os alunos ativos no banco de dados.
- *
- * Melhorias aplicadas:
- * - Substituído forEach + push por map (mais idiomático e eficiente)
- * - Query com colunas explícitas em vez de SELECT * (evita dados desnecessários)
- * - Tipagem explícita na linha do banco (elimina uso de "any")
- * - Logging de erro mais informativo com console.error
- * - Comentários revisados para clareza pedagógica
- *
- * @returns Promise com array de AlunoDTO ou null em caso de erro
- */
-static async listarAlunos(): Promise<Array<AlunoDTO> | null> {
-  try {
-    /*
-     * ✅ MELHORIA: Evite SELECT *
-     * Listar colunas explicitamente melhora a legibilidade, evita trazer
-     * campos desnecessários e protege contra mudanças futuras no schema.
+    static async listarAlunos(): Promise<Array<AlunoDTO> | null> {
+        // Cria uma lista vazia que vai receber os alunos encontrados no banco
+        let listaDeAlunos: Array<AlunoDTO> = [];
+
+        try {
+            // Bloco try: tenta executar o código; se algo der errado, vai para o catch
+
+            // Define a query SQL que busca todos os alunos ativos no banco de dados
+            const querySelectAluno = `SELECT * FROM Aluno WHERE status_aluno = TRUE;`;
+
+            // Executa a query no banco de dados e aguarda o resultado
+            // "await" pausa a execução aqui até o banco responder
+            const respostaBD = await database.query(querySelectAluno);
+
+            // Percorre cada linha retornada pelo banco de dados
+            // "aluno" é o apelido dado a cada linha individual retornada
+            respostaBD.rows.forEach((aluno: any) => {
+
+                // Cria um objeto AlunoDTO com os dados de cada linha do banco
+                // AlunoDTO é apenas um objeto simples de dados (sem métodos), diferente da classe Aluno
+                const alunoDTO: AlunoDTO = {
+                    id_aluno: aluno.id_aluno,               // ID do aluno
+                    ra: aluno.ra,                           // Registro Acadêmico
+                    nome: aluno.nome,                       // Nome
+                    sobrenome: aluno.sobrenome,             // Sobrenome
+                    data_nascimento: aluno.data_nascimento, // Data de nascimento
+                    endereco: aluno.endereco,               // Endereço
+                    email: aluno.email,                     // E-mail
+                    celular: aluno.celular,                 // Celular
+                    status_aluno: aluno.status_aluno        // Status ativo/inativo
+                };
+
+                // Adiciona o objeto AlunoDTO à lista
+                listaDeAlunos.push(alunoDTO);
+            });
+
+            // Retorna a lista com todos os alunos encontrados
+            return listaDeAlunos;
+        } catch (error) {
+            // Se ocorrer qualquer erro durante a consulta, exibe no console para facilitar o debug
+            console.log(`Erro ao acessar o modelo: ${error}`);
+            // Retorna null para indicar que houve falha
+            return null;
+        }
+    }
+
+    /**
+     * Retorna as informações de um aluno informado pelo ID
+     * 
+     * @param idAluno Identificador único do aluno
+     * @returns Objeto com informações do aluno
      */
-    const querySelectAluno = `
-      SELECT
-        id_aluno,
-        ra,
-        nome,
-        sobrenome,
-        data_nascimento,
-        endereco,
-        email,
-        celular,
-        status_aluno
-      FROM Aluno
-      WHERE status_aluno = TRUE;
-    `;
-
-    /*
-     * Executa a query no banco de dados.
-     * "await" pausa a função aqui até o banco responder —
-     * sem bloquear o restante da aplicação (isso é programação assíncrona).
-     */
-    const respostaBD = await database.query(querySelectAluno);
-
-    /*
-     * ✅ MELHORIA: Substituído forEach + push por map()
-     *
-     * O map() transforma cada linha em um AlunoDTO e já retorna o array pronto,
-     * sem precisar criar uma lista vazia antes e empurrar item por item.
-     * É mais conciso, mais legível e considerado boa prática em TypeScript.
-     *
-     * ✅ MELHORIA: Tipagem explícita no parâmetro da função
-     * Substituímos (aluno: any) por uma interface inline.
-     * Isso ativa a checagem de tipos do TypeScript, evitando erros silenciosos.
-     */
-    const listaDeAlunos: Array<AlunoDTO> = respostaBD.rows.map(
-      (aluno: {
-        id_aluno: number;
-        ra: string;
-        nome: string;
-        sobrenome: string;
-        data_nascimento: Date;
-        endereco: string;
-        email: string;
-        celular: string;
-        status_aluno: boolean;
-      }): AlunoDTO => ({
-        id_aluno: aluno.id_aluno,
-        ra: aluno.ra,
-        nome: aluno.nome,
-        sobrenome: aluno.sobrenome,
-        data_nascimento: aluno.data_nascimento,
-        endereco: aluno.endereco,
-        email: aluno.email,
-        celular: aluno.celular,
-        status_aluno: aluno.status_aluno,
-      })
-    );
-
-    // Retorna a lista de alunos transformados em DTOs
-    return listaDeAlunos;
-
-  } catch (error) {
-    /*
-     * ✅ MELHORIA: console.error em vez de console.log
-     * Erros devem ser registrados como erros — isso facilita o monitoramento
-     * em ferramentas de log (ex: Datadog, Sentry) e deixa claro no terminal
-     * que algo inesperado aconteceu.
-     *
-     * ✅ MELHORIA: Verificação do tipo de erro antes de exibir a mensagem
-     * Em TypeScript, o "error" no catch é do tipo "unknown" por padrão.
-     * Verificar se é instância de Error antes de acessar .message é mais seguro
-     * e evita crashes no próprio bloco de tratamento de erro.
-     */
-    const mensagem = error instanceof Error ? error.message : String(error);
-    console.error(`[AlunoModel] Erro ao listar alunos: ${mensagem}`);
-
-    // Retorna null para sinalizar ao chamador que a operação falhou
-    return null;
-  }
-}
+    // Recebe o ID do aluno como parâmetro e retorna um AlunoDTO ou null
     static async listarAluno(id_aluno: number): Promise<AlunoDTO | null> {
         try {
             // Bloco try: aqui tentamos executar o código que pode gerar um erro.
@@ -306,264 +261,135 @@ static async listarAlunos(): Promise<Array<AlunoDTO> | null> {
     * @returns Boolean indicando se o cadastro foi bem-sucedido
     */
     // Recebe um objeto Aluno completo e tenta inseri-lo no banco de dados
- /**
- * Cadastra um novo aluno no banco de dados.
- *
- * Melhorias aplicadas:
- * - Removidas aspas simples nos placeholders '$1' → $1 (mesmo bug crítico do atualizar)
- * - Valores do array alinhados com comentários inline para melhor leitura
- * - console.error com verificação de tipo segura (error instanceof Error)
- * - Comentários revisados e organizados pedagogicamente
- *
- * @param aluno - Objeto Aluno com os dados a serem inseridos
- * @returns Promise<boolean> — true se cadastrado com sucesso, false caso contrário
- */
-static async cadastrarAluno(aluno: Aluno): Promise<boolean> {
-  try {
-    /*
-     * ✅ CORREÇÃO CRÍTICA: Placeholders sem aspas simples
-     *
-     * ERRADO  → VALUES ('$1', '$2', ...)
-     * CORRETO → VALUES ($1, $2, ...)
-     *
-     * Com aspas, o banco interpreta '$1' como texto literal — a substituição
-     * pelo valor real nunca acontece, e a proteção contra SQL Injection
-     * é completamente anulada. Esse bug impediria qualquer cadastro de funcionar.
-     *
-     * ℹ️ RETURNING id_aluno:
-     * Instrui o banco a retornar o ID gerado automaticamente após o INSERT.
-     * Isso permite confirmar que o registro foi criado e recuperar seu ID,
-     * tudo em uma única operação — sem precisar de uma segunda consulta.
-     */
-    const queryInsertAluno = `
-      INSERT INTO Aluno (nome, sobrenome, data_nascimento, endereco, email, celular)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id_aluno;
-    `;
+    static async cadastrarAluno(aluno: Aluno): Promise<boolean> {
+        try {
+            // Query SQL de inserção — os "$1", "$2"... são placeholders substituídos pelos valores reais
+            // "RETURNING id_aluno" faz o banco retornar o ID gerado automaticamente após o INSERT
+            const queryInsertAluno = `INSERT INTO Aluno (nome, sobrenome, data_nascimento, endereco, email, celular)
+                                            VALUES ('$1','$2','$3','$4','$5','$6') RETURNING id_aluno;`;
 
-    /*
-     * Executa a query parametrizada com os dados do objeto Aluno.
-     * Os valores do array são vinculados na ordem dos placeholders $1–$6.
-     *
-     * Normalização aplicada para consistência no banco:
-     * - Textos descritivos (nome, endereço) → MAIÚSCULAS
-     * - E-mail                              → minúsculas
-     * - Datas e números                     → sem transformação
-     */
-    const respostaBD = await database.query(queryInsertAluno, [
-      aluno.getNome().toUpperCase(),       // $1 — Nome
-      aluno.getSobrenome().toUpperCase(),  // $2 — Sobrenome
-      aluno.getDataNascimento(),           // $3 — Data de nascimento
-      aluno.getEndereco().toUpperCase(),   // $4 — Endereço
-      aluno.getEmail().toLowerCase(),      // $5 — E-mail
-      aluno.getCelular(),                  // $6 — Celular
-    ]);
+            // Executa a query passando os valores do objeto aluno
+            // .toUpperCase() converte texto para maiúsculas; .toLowerCase() converte para minúsculas
+            const result = await database.query(queryInsertAluno, [aluno.getNome().toUpperCase(),
+            aluno.getSobrenome().toUpperCase(),     // Sobrenome em maiúsculas
+            aluno.getDataNascimento(),              // Data de nascimento sem transformação
+            aluno.getEndereco().toUpperCase(),      // Endereço em maiúsculas
+            aluno.getEmail().toLowerCase(),         // E-mail em minúsculas
+            aluno.getCelular()]);                   // Celular sem transformação
 
-    /*
-     * Verifica se o banco retornou ao menos uma linha com o ID gerado.
-     * rows.length > 0 confirma que o INSERT foi executado com sucesso.
-     *
-     * ℹ️ Por que não usar rowCount aqui?
-     * Para INSERT com RETURNING, a forma mais confiável de confirmar o sucesso
-     * é verificar se rows contém o registro retornado — rowCount pode variar
-     * conforme o driver utilizado.
-     */
-    if (respostaBD.rows.length > 0) {
-      console.log(`[AlunoModel] Aluno cadastrado com sucesso. ID: ${respostaBD.rows[0].id_aluno}`);
-      return true;
+            // Verifica se o banco retornou pelo menos uma linha (ou seja, o INSERT funcionou)
+            if (result.rows.length > 0) {
+                // Exibe no console o ID do aluno recém-cadastrado
+                console.log(`Aluno cadastrado com sucesso. ID: ${result.rows[0].id_aluno}`);
+                // Retorna true para indicar sucesso
+                return true;
+            }
+
+            // Se nenhuma linha foi retornada, o cadastro não funcionou — retorna false
+            return false;
+        } catch (error) {
+            // Captura e exibe qualquer erro ocorrido durante o cadastro
+            console.error(`Erro ao cadastrar aluno: ${error}`);
+            // Retorna false indicando falha
+            return false;
+        }
     }
 
-    // INSERT executou sem erros, mas nenhum ID foi retornado — indica falha silenciosa
-    return false;
-
-  } catch (error) {
-    /*
-     * ✅ MELHORIA: Verificação de tipo do erro antes de exibir a mensagem.
-     * "error" no catch é do tipo unknown em TypeScript moderno.
-     * Verificar instanceof Error antes de acessar .message é a forma segura.
-     */
-    const mensagem = error instanceof Error ? error.message : String(error);
-    console.error(`[AlunoModel] Erro ao cadastrar aluno: ${mensagem}`);
-
-    return false;
-  }
-}
     /**
     * Remove um aluno do banco de dados
     * @param id_aluno ID do aluno a ser removido
     * @returns Boolean indicando se a remoção foi bem-sucedida
    */
     // Recebe o ID do aluno e realiza uma "remoção lógica" (não apaga do banco, apenas desativa)
-  /**
- * Remove logicamente um aluno e seus empréstimos do sistema.
- *
- * ℹ️ Remoção LÓGICA vs FÍSICA:
- * - Física (DELETE): apaga o registro permanentemente do banco — sem volta.
- * - Lógica (UPDATE status = FALSE): apenas "esconde" o registro, preservando
- *   o histórico. É a abordagem preferida em sistemas reais, pois mantém
- *   a integridade dos dados e permite auditoria.
- *
- * Melhorias aplicadas:
- * - Adicionada verificação de rowCount após o UPDATE do aluno
- * - Variável `result` que existia mas nunca era usada foi aproveitada
- * - Invertida condição para early return (guard clause)
- * - console.error com verificação de tipo segura (error instanceof Error)
- * - Comentários revisados e organizados pedagogicamente
- *
- * @param id_aluno - ID do aluno a ser desativado
- * @returns Promise<boolean> — true se removido com sucesso, false caso contrário
- */
-static async removerAluno(id_aluno: number): Promise<boolean> {
-  try {
-    /*
-     * Consulta prévia: verifica se o aluno existe e está ativo antes de agir.
-     * Evita executar queries de UPDATE desnecessárias no banco.
-     */
-    const aluno: AlunoDTO | null = await this.listarAluno(id_aluno);
+    static async removerAluno(id_aluno: number): Promise<boolean> {
+        try {
+            // Busca o aluno no banco antes de tentar remover, para verificar se ele existe e está ativo
+            const aluno: AlunoDTO | null = await this.listarAluno(id_aluno);
 
-    // Guard clause: se o aluno não existir ou já estiver inativo, encerra aqui
-    if (!aluno || !aluno.status_aluno) {
-      return false;
+            // Só prossegue se o aluno existir (não for null) E estiver com status ativo (true)
+            if (aluno && aluno.status_aluno) {
+                // Query que desativa todos os empréstimos relacionados ao aluno
+                // Em vez de apagar, usa UPDATE para setar o status como FALSE (remoção lógica)
+                const queryDeleteEmprestimoAluno = `UPDATE emprestimo 
+                                                    SET status_emprestimo_registro = FALSE
+                                                    WHERE id_aluno=$1;`;
+
+                // Executa a desativação dos empréstimos do aluno
+                await database.query(queryDeleteEmprestimoAluno, [id_aluno]);
+
+                // Query que desativa o próprio aluno (também uma remoção lógica)
+                const queryDeleteAluno = `UPDATE aluno 
+                                        SET status_aluno = FALSE
+                                        WHERE id_aluno=$1;`;
+
+                // Executa a desativação do aluno e armazena o resultado
+                const result = await database.query(queryDeleteAluno, [id_aluno]);
+
+                // "rowCount" indica quantas linhas foram afetadas pelo UPDATE
+                // Se for diferente de 0, significa que o aluno foi desativado com sucesso
+                return true;
+            }
+
+            // Se o aluno não existir ou já estiver inativo, retorna false
+            return false;
+
+        } catch (error) {
+            // Exibe o erro no console e retorna false em caso de falha
+            console.log(`Erro na consulta: ${error}`);
+            return false;
+        }
     }
 
-    /*
-     * PASSO 1 — Desativa os empréstimos vinculados ao aluno.
-     *
-     * Antes de desativar o aluno, desativamos seus empréstimos.
-     * Essa ordem importa: garante consistência nos dados
-     * (não deixamos empréstimos "ativos" para um aluno inativo).
-     *
-     * ℹ️ Não verificamos rowCount aqui porque é válido que o aluno
-     * não tenha nenhum empréstimo — zero linhas afetadas não é um erro.
-     */
-    const queryDesativarEmprestimos = `
-      UPDATE emprestimo
-      SET status_emprestimo_registro = FALSE
-      WHERE id_aluno = $1;
-    `;
+    /**
+    * Atualiza os dados de um aluno no banco de dados.
+    * @param aluno Objeto do tipo Aluno com os novos dados
+    * @returns true caso sucesso, false caso erro
+    */
+    // Recebe um objeto Aluno com os dados atualizados e os salva no banco
+    static async atualizarAluno(aluno: Aluno): Promise<boolean> {
+        try {
+            // Antes de atualizar, verifica se o aluno existe e está ativo no banco
+            const alunoConsulta: AlunoDTO | null = await this.listarAluno(aluno.id_aluno);
 
-    await database.query(queryDesativarEmprestimos, [id_aluno]);
+            // Só prossegue com a atualização se o aluno existir e estiver ativo
+            if (alunoConsulta && alunoConsulta.status_aluno) {
+                // Query SQL de atualização — cada campo recebe um placeholder "$n"
+                // O WHERE garante que só o aluno com o ID correto seja atualizado
+                const queryAtualizarAluno = `UPDATE Aluno SET 
+                                                    nome = '$1', 
+                                                    sobrenome = '$2',
+                                                    data_nascimento = '$3', 
+                                                    endereco = '$4',
+                                                    celular = '$5', 
+                                                    email = '$6'                                            
+                                                WHERE id_aluno = $7`;
 
-    /*
-     * PASSO 2 — Desativa o próprio aluno.
-     *
-     * Só executado após os empréstimos serem tratados no passo anterior.
-     * Armazenamos o resultado para verificar se o UPDATE realmente funcionou.
-     */
-    const queryDesativarAluno = `
-      UPDATE aluno
-      SET status_aluno = FALSE
-      WHERE id_aluno = $1;
-    `;
+                // Executa a query de atualização com os valores do objeto aluno recebido
+                const respostaBD = await database.query(queryAtualizarAluno, [
+                    aluno.getNome().toUpperCase(),       // Nome em maiúsculas
+                    aluno.getSobrenome().toUpperCase(),  // Sobrenome em maiúsculas
+                    aluno.getDataNascimento(),           // Data de nascimento
+                    aluno.getEndereco().toUpperCase(),   // Endereço em maiúsculas
+                    aluno.getCelular(),                  // Celular
+                    aluno.getEmail().toLowerCase(),      // E-mail em minúsculas
+                    aluno.id_aluno                       // ID do aluno (para o WHERE)
+                ]);
 
-    const respostaBD = await database.query(queryDesativarAluno, [id_aluno]);
+                // Se rowCount for diferente de 0, a atualização funcionou — retorna true
+                if (respostaBD.rowCount != 0) {
+                    return true;
+                }
+            }
 
-    /*
-     * ✅ CORREÇÃO: rowCount estava sendo ignorado no código original.
-     * A variável `result` era declarada mas nunca verificada — o método
-     * retornava true mesmo se o UPDATE não afetasse nenhuma linha.
-     *
-     * rowCount pode ser null se o driver não souber quantas linhas foram afetadas,
-     * por isso verificamos null explicitamente antes de comparar com 0.
-     */
-    if (respostaBD.rowCount !== null && respostaBD.rowCount !== 0) {
-      return true;
+            // Se o aluno não existe, está inativo, ou o UPDATE não afetou nenhuma linha, retorna false
+            return false;
+        } catch (error) {
+            // Exibe o erro no console e retorna false em caso de exceção
+            console.log(`Erro na consulta: ${error}`);
+            return false;
+        }
     }
 
-    // UPDATE executou sem erros, mas nenhuma linha foi afetada
-    return false;
-
-  } catch (error) {
-    /*
-     * ✅ MELHORIA: console.error + verificação de tipo do erro
-     * "error" no catch é do tipo unknown em TypeScript moderno.
-     * Verificar instanceof Error antes de acessar .message é a forma segura.
-     */
-    const mensagem = error instanceof Error ? error.message : String(error);
-    console.error(`[AlunoModel] Erro ao remover aluno: ${mensagem}`);
-
-    return false;
-  }
-}
-static async atualizarAluno(aluno: Aluno): Promise<boolean> {
-  try {
-    /*
-     * Antes de atualizar, verifica se o aluno existe e está ativo.
-     * Essa consulta prévia evita executar um UPDATE desnecessário no banco.
-     * listarAluno() retorna null se não encontrar — por isso checamos logo abaixo.
-     */
-    const alunoConsulta: AlunoDTO | null = await this.listarAluno(aluno.id_aluno);
-
-    // Se o aluno não existir ou estiver inativo, encerra aqui retornando false
-    if (!alunoConsulta || !alunoConsulta.status_aluno) {
-      return false;
-    }
-
-    /*
-     * ✅ CORREÇÃO CRÍTICA: Placeholders sem aspas simples
-     *
-     * ERRADO  → nome = '$1'  (o banco interpreta como string literal "$1")
-     * CORRETO → nome = $1    (o banco substitui pelo valor real do array)
-     *
-     * Usar '$1' com aspas além de quebrar a query, anula a proteção contra
-     * SQL Injection que os placeholders parametrizados oferecem.
-     */
-    const queryAtualizarAluno = `
-      UPDATE Aluno
-      SET
-        nome            = $1,
-        sobrenome       = $2,
-        data_nascimento = $3,
-        endereco        = $4,
-        celular         = $5,
-        email           = $6
-      WHERE id_aluno = $7
-    `;
-
-    /*
-     * Executa a query parametrizada.
-     * Os valores do array são vinculados aos placeholders $1–$7, na ordem.
-     * Normalizar strings (upper/lowercase) garante consistência no banco.
-     */
-    const respostaBD = await database.query(queryAtualizarAluno, [
-      aluno.getNome().toUpperCase(),        // $1 — Nome padronizado em maiúsculas
-      aluno.getSobrenome().toUpperCase(),   // $2 — Sobrenome padronizado em maiúsculas
-      aluno.getDataNascimento(),            // $3 — Data de nascimento
-      aluno.getEndereco().toUpperCase(),    // $4 — Endereço padronizado em maiúsculas
-      aluno.getCelular(),                   // $5 — Celular
-      aluno.getEmail().toLowerCase(),       // $6 — E-mail padronizado em minúsculas
-      aluno.id_aluno,                       // $7 — ID usado no WHERE
-    ]);
-
-    /*
-     * ✅ MELHORIA: Verificação de rowCount com null antes de comparar
-     *
-     * rowCount pode ser null se o driver não souber quantas linhas foram afetadas.
-     * Checar isso explicitamente evita comportamento inesperado.
-     *
-     * ✅ MELHORIA: Operador estrito !== em vez de !=
-     * O operador !== não faz coerção de tipos (ex: "0" != 0 seria true com !=).
-     * Em TypeScript, sempre prefira === e !== para comparações seguras.
-     */
-    if (respostaBD.rowCount !== null && respostaBD.rowCount !== 0) {
-      return true;
-    }
-
-    // UPDATE executado, mas nenhuma linha foi afetada — retorna false
-    return false;
-
-  } catch (error) {
-    /*
-     * ✅ MELHORIA: console.error + verificação de tipo do erro
-     * "error" no catch é do tipo unknown em TypeScript moderno.
-     * Verificar instanceof Error antes de acessar .message é a forma segura.
-     */
-    const mensagem = error instanceof Error ? error.message : String(error);
-    console.error(`[AlunoModel] Erro ao atualizar aluno: ${mensagem}`);
-
-    return false;
-  }
-}
 }
 
 // Exporta a classe Aluno para que possa ser importada e usada em outros arquivos do projeto
