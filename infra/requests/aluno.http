@@ -1,7 +1,8 @@
 GET http://localhost:3333/api/alunos
+x-access-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Mywibm9tZSI6IlJlbmF0byBPbGl2ZWlyYSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3NDk2NTk0MywiZXhwIjoxNzc0OTY5NTQzfQ.YyP3DxR2wmI4nM1H8GbDkKn6J0uWPNNyaHFNmUcfmrQ
 
 ###
-GET http://localhost:3333/api/alunos/21
+GET http://localhost:3333/api/alunos/3
 
 ###
 POST http://localhost:3333/api/alunos
@@ -17,17 +18,17 @@ Content-Type: application/json
 }
 
 ###
-PUT http://localhost:3333/api/alunos/21
+PUT http://localhost:3333/api/alunos/24
 Content-Type: application/json
 
 {
   "nome": "Joselito",
   "sobrenome": "Freitas",
   "data_nascimento": "2003-07-10T03:00:00.000Z",
-  "endereco": "Rua do Ingá, 811",
+  "endereco": "Rua do Ingá, 001",
   "email": "joselito@semnocao.com",
   "celular": "16991915545"
 }
 
 ###
-DELETE http://localhost:3333/api/alunos/21
+DELETE http://localhost:3333/api/alunos/11
